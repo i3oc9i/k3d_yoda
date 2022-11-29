@@ -1,0 +1,64 @@
+apiVersion: k3d.io/v1alpha4 
+kind: Simple 
+
+metadata:
+  name: yoda
+
+image: rancher/k3s:v1.23.6-k3s1
+
+servers: 1  # masters
+agents: 3   # workers
+
+kubeAPI: 
+  host: "k3d.yoda.local" 
+  hostIP: "127.1.0.2" 
+  hostPort: "443"
+
+hostAliases: 
+  - ip: 1.2.3.4
+    hostnames: 
+      - foo.bar
+
+registries: 
+  create: 
+    name: registry.yoda.local
+    host: "127.1.0.3"
+    hostPort: "5000"
+
+ports:
+  - port: 127.1.0.1:80:80 
+    nodeFilters:
+      - loadbalancer
+  - port: 127.1.0.1:443:433
+    nodeFilters:
+      - loadbalancer
+
+env:
+  - envVar: NODE_TYPE=agent
+    nodeFilters:
+      - agent:0
+  - envVar: NODE_TYPE=master
+    nodeFilters:
+      - server:0
+
+options:
+  k3d: 
+    wait: true
+    timeout: "60s" 
+    disableLoadbalancer: false 
+    disableImageVolume: false 
+    disableRollback: false 
+
+  k3s: 
+    nodeLabels:
+      - label: node-type=agent
+        nodeFilters:
+          - agent:0
+      - label: node-type=master
+        nodeFilters:
+          - server:0
+
+  kubeconfig:
+    updateDefaultKubeconfig: true 
+    switchCurrentContext: true
+
