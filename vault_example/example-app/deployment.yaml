@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: example-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: example-app
+  name: jweissig
+  labels:
+    app: jweissig-app
+spec:
+  selector:
+    matchLabels:
+      app: jweissig-app
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: jweissig-app
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/tls-skip-verify: "true"
+        vault.hashicorp.com/role: "basic-secret-role"
+
+        vault.hashicorp.com/agent-inject-secret-user: "secret/basic-secret/secret-user"
+        vault.hashicorp.com/agent-inject-template-user: |
+          {{- with secret "secret/basic-secret/secret-user" -}}
+          {
+            "username" : "{{ .Data.username }}",
+            "password" : "{{ .Data.password }}"
+          }
+          {{- end }}
+
+        vault.hashicorp.com/agent-inject-secret-db: "secret/basic-secret/secret-db"
+        vault.hashicorp.com/agent-inject-template-db: |
+          {{- with secret "secret/basic-secret/secret-db" -}}
+          {
+            "username" : "{{ .Data.username }}",
+            "password" : "{{ .Data.password }}"
+          }
+          {{- end }}
+    spec:
+      serviceAccountName: basic-secret
+      containers:
+      - name: jweissig-app
+        image: jweissig/app:0.0.1
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: example-app
+  name: basic-secret
+  labels:
+    app: jweissig-app
