@@ -2,12 +2,7 @@
 
 vault.json
 
-ca.csr
-ca.pem
-ca-key.pem
-
-vault.csr
-vault.pem
-vault-key.pem
+*.csr
+*.pem
 
 
