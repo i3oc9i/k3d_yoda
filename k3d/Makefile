@@ -8,7 +8,7 @@ REGISTRY_URL = registry-yoda.local:5000
 all: help
 
 k3d-up:
-	k3d cluster create $(KLUSTER_NAME) --config ./confg/default.yaml
+	k3d cluster create $(KLUSTER_NAME) --config ./config/default.yaml
 	kubectl cluster-info
 	kubectl get node -o wide
 
