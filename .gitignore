@@ -1,8 +1,4 @@
-**/.kube-config
+.kube-config
 
-**/vault-secrets.json
-
-**/*.csr
-**/*.pem
-
+**/.secrets
 

@@ -1,4 +1,4 @@
-# Vault Deployment Guide
+# Vault Deployment Example
 
 ## 1. Configure hashicorp repo
 
@@ -24,23 +24,23 @@ helm install consul hashicorp/consul \
 
 ## 4. Create the TLS secret (autosigned)
 ```
-cfssl gencert -initca ./tls/ca-csr.json | cfssljson -bare ./secrets/ca
+cfssl gencert -initca ./tls/ca-csr.json | cfssljson -bare ./.secrets/ca
 
 kubectl -n vault create secret tls tls-ca \
- --cert ./secrets/ca.pem  \
- --key ./secrets/ca-key.pem
+ --cert ./.secrets/ca.pem  \
+ --key ./.secrets/ca-key.pem
 
 cfssl gencert \
-  -ca=./secrets/ca.pem \
-  -ca-key=./secrets/ca-key.pem \
+  -ca=./.secrets/ca.pem \
+  -ca-key=./.secrets/ca-key.pem \
   -config=./tls/ca-config.json \
   -hostname="vault,vault.vault.svc.cluster.local,vault.vault.svc,localhost,127.0.0.1" \
   -profile=default \
-  ./tls/ca-csr.json | cfssljson -bare ./secrets/vault
+  ./tls/ca-csr.json | cfssljson -bare ./.secrets/vault
 
 kubectl -n vault create secret tls tls-server \
-  --cert ./secrets/vault.pem \
-  --key ./secrets/vault-key.pem
+  --cert ./.secrets/vault.pem \
+  --key ./.secrets/vault-key.pem
 ```
 
 ## 5. Deploy Vault
@@ -55,14 +55,14 @@ helm install vault hashicorp/vault \
 
 ## 6. Unsealing Vault
 ```
-kubectl -n vault exec vault-0 -- vault operator init -format=json > ./secrets/vault-secrets.json
+kubectl -n vault exec vault-0 -- vault operator init -format=json > ./.secrets/vault-secrets.json
 
 for vault in vault-0 vault-1 vault-2
 do
   echo ">>> unsealing ${vault} ..."
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[0]' ./secrets/vault-secrets.json)
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[1]' ./secrets/vault-secrets.json)
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[2]' ./secrets/vault-secrets.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[0]' ./.secrets/vault-secrets.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[1]' ./.secrets/vault-secrets.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[2]' ./.secrets/vault-secrets.json)
 done
 ```
 
@@ -81,7 +81,7 @@ Access the web UI and API at https://127.0.0.1:8200/
 
 ## 9. Enable Kubernetes Authentication
 ```
-kubectl -n vault exec vault-0 -- vault login $(jq -r '.root_token' ./secrets/vault-secrets.json)
+kubectl -n vault exec vault-0 -- vault login $(jq -r '.root_token' ./.secrets/vault-secrets.json)
 
 kubectl -n vault exec vault-0 -- vault auth enable kubernetes
 

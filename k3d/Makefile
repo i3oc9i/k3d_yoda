@@ -23,5 +23,7 @@ k3d-down:
 
 # ------------------------------------------------------------------- Help
 help:
-	@echo "make k3d-up   - create the playground k3d kluster and the registry."
-	@echo "make k3d-down - destroy the playground k3d kluster and the registry."
+	@echo "make k3d-up    - create the k3d kluster infrastructure."
+	@echo "make k3d-down  - destroy all."
+	@echo "make k3d-stop  - stop the kluster."
+	@echo "make k3d-start - start the kluster ."
