@@ -24,18 +24,18 @@ spec:
         vault.hashicorp.com/tls-skip-verify: "true"
         vault.hashicorp.com/role: "basic-secret-role"
 
-        vault.hashicorp.com/agent-inject-secret-user: "secret/basic-secret/secret-user"
+        vault.hashicorp.com/agent-inject-secret-user: "secret/basic-secret/user"
         vault.hashicorp.com/agent-inject-template-user: |
-          {{- with secret "secret/basic-secret/secret-user" -}}
+          {{- with secret "secret/basic-secret/user" -}}
           {
             "username" : "{{ .Data.username }}",
             "password" : "{{ .Data.password }}"
           }
           {{- end }}
 
-        vault.hashicorp.com/agent-inject-secret-db: "secret/basic-secret/secret-db"
+        vault.hashicorp.com/agent-inject-secret-db: "secret/basic-secret/db"
         vault.hashicorp.com/agent-inject-template-db: |
-          {{- with secret "secret/basic-secret/secret-db" -}}
+          {{- with secret "secret/basic-secret/db" -}}
           {
             "username" : "{{ .Data.username }}",
             "password" : "{{ .Data.password }}"

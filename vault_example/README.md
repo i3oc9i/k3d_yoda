@@ -7,9 +7,11 @@ helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
 ```
 
-## 2. Cretae vault namespace
+## 2. Create vault namespace and local secret folder
 ```
 kubectl create ns vault
+
+mkdir -p ./.secrets
 ```
 
 ## 3. Use Consul as Vault backend
@@ -55,14 +57,14 @@ helm install vault hashicorp/vault \
 
 ## 6. Unsealing Vault
 ```
-kubectl -n vault exec vault-0 -- vault operator init -format=json > ./.secrets/vault-secrets.json
+kubectl -n vault exec vault-0 -- vault operator init -format=json > ./.secrets/vault-unseal-keys.json
 
 for vault in vault-0 vault-1 vault-2
 do
   echo ">>> unsealing ${vault} ..."
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[0]' ./.secrets/vault-secrets.json)
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[1]' ./.secrets/vault-secrets.json)
-  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[2]' ./.secrets/vault-secrets.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[0]' ./.secrets/vault-unseal-keys.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[1]' ./.secrets/vault-unseal-keys.json)
+  kubectl -n vault exec ${vault} -- vault operator unseal $(jq -r '.unseal_keys_hex[2]' ./.secrets/vault-unseal-keys.json)
 done
 ```
 
@@ -81,21 +83,21 @@ Access the web UI and API at https://127.0.0.1:8200/
 
 ## 9. Enable Kubernetes Authentication
 ```
-kubectl -n vault exec vault-0 -- vault login $(jq -r '.root_token' ./.secrets/vault-secrets.json)
+kubectl -n vault exec vault-0 -- vault login $(jq -r '.root_token' ./.secrets/vault-unseal-keys.json)
 
 kubectl -n vault exec vault-0 -- vault auth enable kubernetes
 
 kubectl -n vault exec vault-0 -- sh -c 'vault write auth/kubernetes/config \
   token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token \
   kubernetes_host=https://${KUBERNETES_PORT_443_TCP_ADDR}:443 \
-  kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.secrets \
+  kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
   issuer=https://kubernetes.default.svc.cluster.local'
 ```
 
-## 10. Basic Secret Injection (Exemple)
+## 10. Basic Secret Injection (Example)
 
 ### 10.1 Create a role for the `example-app`
-Cretae a `basic-secret-role` in vault mapping the kubernetes service account `basic-secret` to a `basic-secret-policy`
+Create a `basic-secret-role` in vault mapping the kubernetes service account `basic-secret` to a `basic-secret-policy`
 for applications deployed into the `example-app` namespace  
 ```
 kubectl -n vault exec vault-0 -- vault write auth/kubernetes/role/basic-secret-role \
@@ -115,15 +117,15 @@ path "secret/basic-secret/*" {
 EOF'
 ```
 
-Enable key value secrets in vault for `secrets` folder 
+Enable key value secrets in vault for `secret` folder 
 ```
 kubectl -n vault exec vault-0 -- vault secrets enable -path=secret/ kv
 ```
 
 store `secret-user` and `secret-db` secrets in `basic-secret` vault folder
 ```
-kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/secret-user  username=onavi password=QwErT-AsDfg-12345-%%
-kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/secret-db    username=admin password=YuIoP-ZxCvB-67890-%%
+kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/user  username=onavi password=QwErT-AsDfg-12345-%%
+kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/db    username=admin password=YuIoP-ZxCvB-67890-%%
 ```
 
 ### 10.2 Deploy the `example-app` and verify secrets injection
@@ -138,7 +140,7 @@ kubectl -n example-app exec ${POD} -- cat /vault/secrets/user
 kubectl -n example-app exec ${POD} -- cat /vault/secrets/db
 ```
 
-## 11. Using External Secrets Operator (Exemple)
+## 11. Using External Secrets Operator (Example)
 
 
 

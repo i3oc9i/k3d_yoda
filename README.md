@@ -1,4 +1,4 @@
-# A K3D Kluster playground for personal kubenetes projects
+# Playground for personal kubernetes projects
 
 ## 1. mTLS
 
