@@ -73,11 +73,11 @@ do
   kubectl -n vault exec ${vault} -- vault status
 done
 ```
-## 8. Acess Web UI
+## 8. Acess Web UI (Optional)
 ```
 kubectl -n vault port-forward svc/vault-ui 8200
 ```
-Access the web UI [here]("https://127.0.0.1:8200/")
+Access the web UI and API at https://127.0.0.1:8200/
 
 ## 9. Enable Kubernetes Authentication
 ```
@@ -92,7 +92,7 @@ kubectl -n vault exec vault-0 -- sh -c 'vault write auth/kubernetes/config \
   issuer=https://kubernetes.default.svc.cluster.local'
 ```
 
-## 10. Basic Secret Injection (Example)
+## 10. Basic Secret Injection (Exemple)
 
 ### 10.1 Create a role for the `example-app`
 Cretae a `basic-secret-role` in vault mapping the kubernetes service account `basic-secret` to a `basic-secret-policy`
@@ -120,7 +120,7 @@ Enable key value secrets in vault for `secrets` folder
 kubectl -n vault exec vault-0 -- vault secrets enable -path=secret/ kv
 ```
 
-store `secret-db` and `secret-admin` secrets in `basic-secret` vault folder
+store `secret-user` and `secret-db` secrets in `basic-secret` vault folder
 ```
 kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/secret-user  username=onavi password=QwErT-AsDfg-12345-%%
 kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/secret-db    username=admin password=YuIoP-ZxCvB-67890-%%
@@ -137,3 +137,8 @@ POD=$(kubectl -n example-app get pod -o json | jq -r '.items[0].metadata.name')
 kubectl -n example-app exec ${POD} -- cat /vault/secrets/user
 kubectl -n example-app exec ${POD} -- cat /vault/secrets/db
 ```
+
+## 11. Using External Secrets Operator (Exemple)
+
+
+
