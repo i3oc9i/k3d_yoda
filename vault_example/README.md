@@ -96,7 +96,8 @@ kubectl -n vault exec vault-0 -- sh -c 'vault write auth/kubernetes/config \
 
 ## 10. Basic Secret Injection (Example)
 
-### 10.1 Create a role for the `example-app`
+### 10.1 Create a role and a policy for the `example-app`
+
 Create a `basic-secret-role` in vault mapping the kubernetes service account `basic-secret` to a `basic-secret-policy`
 for applications deployed into the `example-app` namespace  
 ```
@@ -104,7 +105,7 @@ kubectl -n vault exec vault-0 -- vault write auth/kubernetes/role/basic-secret-r
    bound_service_account_names=basic-secret \
    bound_service_account_namespaces=example-app \
    policies=basic-secret-policy \
-   ttl=1h
+   ttl=87600h
 ```
 
 Create the policy `basic-secret-policy` in vault allowing the service account `basic-secret` to read secrets
@@ -117,18 +118,20 @@ path "secret/basic-secret/*" {
 EOF'
 ```
 
-Enable key value secrets in vault for `secret` folder 
+## 10.2 Store a bunch of basic secrets
+
+Enable key value secrets in vault for `secret/basic-secret` folder 
 ```
-kubectl -n vault exec vault-0 -- vault secrets enable -path=secret/ kv
+kubectl -n vault exec vault-0 -- vault secrets enable -path=secret/basic-secret/ kv
 ```
 
-store `secret-user` and `secret-db` secrets in `basic-secret` vault folder
+store `user` and `db` secrets in `basic-secret` vault folder
 ```
 kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/user  username=onavi password=QwErT-AsDfg-12345-%%
 kubectl -n vault exec vault-0 -- vault kv put secret/basic-secret/db    username=admin password=YuIoP-ZxCvB-67890-%%
 ```
 
-### 10.2 Deploy the `example-app` and verify secrets injection
+### 10.3 Deploy the `example-app` and verify secrets injection
 ```
 kubectl apply -f ./example-app/deployment.yaml
 ```
@@ -140,7 +143,117 @@ kubectl -n example-app exec ${POD} -- cat /vault/secrets/user
 kubectl -n example-app exec ${POD} -- cat /vault/secrets/db
 ```
 
-## 11. Using External Secrets Operator (Example)
+## 11. Using External Secrets Operator (EOS) (Example)
 
+## 11.1. Configure ESO repo
+```
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+```
 
+## 11.2 Deploy ESO
+```
+helm search repo external-secrets/external-secrets --versions
 
+helm install external-secrets \
+    external-secrets/external-secrets \
+    --namespace vault \
+    --version 0.6.1 \
+    --set installCRDs=true
+```
+
+## 11.3 Create a role and a policy for the external secrets
+
+Create a `external-secrets-role` in vault mapping the kubernetes service account `external-secrets` to a `external-secrets-policy`
+for `EOS` deployed into the `vault` namespace  
+```
+kubectl -n vault exec vault-0 -- vault write auth/kubernetes/role/external-secrets-role \
+  bound_service_account_names=external-secrets \
+  bound_service_account_namespaces=vault \
+  policies=external-secrets-policy \
+  ttl=87600h
+```
+
+Create the policy `external-secrets-policy` in vault allowing the service account `external-secrets` to read secrets
+```
+kubectl -n vault exec vault-0 -- sh -c '
+  cat << EOF | vault policy write external-secrets-policy -
+  path "secret/external-secret/*" {
+    capabilities = ["read", "list"]
+  }
+EOF'
+```
+
+## 11.4 Store a bunch of external secrets
+
+Enable key value secrets in vault for `secret/external-secret` folder
+```
+kubectl -n vault exec vault-0 -- vault secrets enable -version=2 -path=secret/external-secret/ kv
+```
+
+store `user` and `db` secrets in `external-secret` vault folder
+```
+kubectl -n vault exec vault-0 -- vault kv put secret/external-secret/user  username=onavi password=QwErT-AsDfg-12345-%%-v2
+kubectl -n vault exec vault-0 -- vault kv put secret/external-secret/db    username=admin password=YuIoP-ZxCvB-67890-%%-v2
+```
+## 11.5 Creating a Cluster Secret Store
+
+Setting up a `ClusterSecretStore` holding the information for contacting the Vault secret provider
+```
+cat <<EOF | kubectl apply -f -
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: vault-external-secret-backend
+spec:
+  provider:
+    vault:
+      server: "https://vault.vault.svc:8200"
+      caProvider:
+        type: "Secret"
+        namespace: "vault"
+        name: "tls-ca"
+        key: "tls.crt"
+      path: "secret/external-secret"
+      version: "v2"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "external-secrets-role"
+EOF
+```
+
+## 11.6 Pulling secrets from the Secret Store
+```
+cat <<EOF | kubectl apply -f -
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  namespace: example-app
+  name: pull-user-secret
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-external-secret-backend
+    kind: ClusterSecretStore
+  target:
+    name: user-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: username
+      remoteRef:
+        key: user
+        property: username
+    - secretKey: password
+      remoteRef:
+        key: user
+        property: password
+EOF
+```
+
+## 11.7 Verify Pulled secrets
+```
+kubectl -n example-app get externalsecrets.external-secrets.io
+
+kubectl -n example-app describe secrets user-secret
+```
